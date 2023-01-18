@@ -13,6 +13,7 @@ struct timeval start, end;
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+#include <mpi.h>
 
 ////////////////////////////////////////////////////////////////////////
 //user defined datatypes
@@ -90,7 +91,7 @@ void screen_dump()
 	static int dump=1;
 	char fn[100];
 	int i;
-	sprintf(fn, "screen%03d.ppm", dump++);
+	sprintf(fn, "screen%03d-mpi.ppm", dump++);
 	FILE *fp = fopen(fn, "w");
 	fprintf(fp, "P6\n%d %d\n255\n", GLOBAL_width, GLOBAL_height);
 	for (i = GLOBAL_height - 1; i >= 0; i--)
@@ -128,6 +129,13 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {	
+
+	int numtasks, rank;
+
+	MPI_Init(&argc,&argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
 	int i, j, iter, min, max;
 	rgb_t *px;
 	double x, y, zx, zy, zx2, zy2;
@@ -158,7 +166,10 @@ void calc_mandel()
  
 	for (i = 0; i < GLOBAL_height; i++)
 		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
-			hsv_to_rgb(*(unsigned short*)px, min, max, px);			
+			hsv_to_rgb(*(unsigned short*)px, min, max, px);
+
+	
+	MPI_Finalize();	
 }
 
 ////////////////////////////////////////////////////////////////////////
