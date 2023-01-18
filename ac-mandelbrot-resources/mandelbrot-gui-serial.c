@@ -1,9 +1,19 @@
+// FAZER
+// 1 - Começar a contar o tempo na função screendump (DONE)
+// 2 - Terminar de contar o tempo na função keypress (DONE)
+// 3 - 
+
+#include <sys/time.h> 
+struct timeval start, end;
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <GL/glut.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+
 
 ////////////////////////////////////////////////////////////////////////
 //user defined datatypes
@@ -73,6 +83,11 @@ void print_menu()
 //////////////////////////////////////////////////////////////////////// 
 void screen_dump()
 {
+	// TERMINAR DE CONTAR O TEMPO E PRINTAR
+	gettimeofday(&end,NULL);
+	int elapsed = ((end.tv_sec - start.tv_sec) * 1000000) + (end.tv_usec - start.tv_usec);
+	printf("\nTime elapsed: %d micro seconds\n",elapsed);
+
 	static int dump=1;
 	char fn[100];
 	int i;
@@ -285,6 +300,10 @@ void keypress(unsigned char key, int x, int y)
              break;
 
 	case 'Z':// simulate many mouse clicks in order to dive fully in zoomin
+
+			// COMEÇAR A CONTAR O TEMPO
+			gettimeofday(&start,NULL);
+
              GLOBAL_refresh=1; // use 0 to avoid refreshing all but the last one
              for (zoomin_x=0, zoomin_y=1; zoomin_x < GLOBAL_zoomin_num_pairs; zoomin_x+=2, zoomin_y +=2) {
                  if (zoomin_x == GLOBAL_zoomin_num_pairs-2) GLOBAL_refresh=1;
