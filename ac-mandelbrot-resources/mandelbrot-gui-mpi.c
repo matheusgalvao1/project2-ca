@@ -2,7 +2,6 @@
 // 1 - Começar a contar o tempo na função screendump (DONE)
 // 2 - Terminar de contar o tempo na função keypress (DONE)
 // 3 - 
-
 #include <sys/time.h> 
 struct timeval start, end;
 
@@ -41,8 +40,7 @@ int GLOBAL_zoomin[GLOBAL_zoomin_num_pairs]={538,237,491,369,522,383,492,372,504,
 int GLOBAL_window_width=1024;
 int GLOBAL_window_height=768;
 int GLOBAL_refresh=1;
-//int GLOBAL_max_iter = 256; // profiling
-int GLOBAL_max_iter = 4096; // benchmark
+int GLOBAL_max_iter = 256;
 int GLOBAL_tex_size=0;
 
 ////////////////////////////////////////////////////////////////////////
