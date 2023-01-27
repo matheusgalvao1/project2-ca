@@ -145,7 +145,6 @@ void calc_mandel()
 	// Saber qual rank da task
 	int myrank = rank;
 
-	printf("myrank => %i\n", myrank);
 
 	//MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	// Numero total de tasks
@@ -196,7 +195,11 @@ void calc_mandel()
 		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
 			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
 			
-			
+
+	printf("myrank => %i\n", myrank);
+
+	/*
+	// MPI_Barrier(MPI_COMM_WORLD);		
 	// Preparar buffer com GLOBAL_tex da posicao lim_inf até lim_sup
 	for (i = lim_inf; i < lim_sup; i++)
 		sendbuf[i] = *GLOBAL_tex[i];
@@ -205,15 +208,16 @@ void calc_mandel()
 	MPI_Gather(&sendbuf, linhas_cada, structType, recvbuf, linhas_cada, structType, 0, MPI_COMM_WORLD); // (*)
 	
 	if (myrank == 0) {
-    for (i=0; i<GLOBAL_height; i++) {
-		*GLOBAL_tex[i] = recvbuf[i];
+    	for (i=linhas_cada; i<GLOBAL_height; i++) {
+			*GLOBAL_tex[i] = recvbuf[i];
 
-        //printf("task 0: received %d %d\n", recvbuf[i*2], recvbuf[i*2+1]); // (*) 
-    }
- }
+			//printf("task 0: received %d %d\n", recvbuf[i*2], recvbuf[i*2+1]); // (*) 
+		}
+ 	}
+	*/
 
 	// Esperar todas as tasks terminarem pra seguir
-	// MPI_Barrier(MPI_COMM_WORLD); // n sei se precisa com gather
+	//MPI_Barrier(MPI_COMM_WORLD); // n sei se precisa com gather
 	
 	
 }
