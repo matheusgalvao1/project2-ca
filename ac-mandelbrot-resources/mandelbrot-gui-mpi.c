@@ -48,6 +48,10 @@ int GLOBAL_refresh=1;
 int GLOBAL_max_iter = 256;
 int GLOBAL_tex_size=0;
 
+// Tornamos globais
+int numtasks, rank;
+MPI_Datatype structType; // variable that represents the new type
+
 ////////////////////////////////////////////////////////////////////////
 //function prototypes
 void render();
@@ -133,22 +137,30 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {
-
 	int i, j, iter, min, max;
 	rgb_t *px; // nosso ponteiro local para acessar o pixel
 	double x, y, zx, zy, zx2, zy2;
 	min = GLOBAL_max_iter; max = 0;
 
 	// Saber qual rank da task
-	int myrank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+	int myrank = rank;
+
+	printf("myrank => %i\n", myrank);
+
+	//MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	// Numero total de tasks
-	int total_tasks;
-	MPI_Comm_size(MPI_Comm comm, int *total_tasks)
+	int total_tasks = numtasks;
+	//MPI_Comm_size(MPI_Comm comm, int *total_tasks)
 	// Quantas cada um vai fazer (só pode ser par)
 	int linhas_cada = GLOBAL_height/total_tasks;
 	int lim_inf = myrank*linhas_cada;
 	int lim_sup = lim_inf + linhas_cada;
+	// Buffers
+	rgb_t *recvbuf; rgb_t sendbuf[linhas_cada]; 
+	if (myrank == 0) {
+		// Cada task manda tantas linhas com tantos pixeis de tipo rbt_t
+     	recvbuf=(rgb_t*)malloc(linhas_cada*total_tasks*GLOBAL_width*sizeof(rgb_t)); // n sei o size
+ 	}
 
 	// Calcula o px, min, max
 	for (i = lim_inf; i < lim_sup; i++) {
@@ -183,11 +195,25 @@ void calc_mandel()
 	for (i = lim_inf; i < lim_sup; i++)
 		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
 			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
+			
+			
+	// Preparar buffer com GLOBAL_tex da posicao lim_inf até lim_sup
+	for (i = lim_inf; i < lim_sup; i++)
+		sendbuf[i] = *GLOBAL_tex[i];
 
-	// Comunicar?
+	// Faz gather mandando tantas linhas de structType
+	MPI_Gather(&sendbuf, linhas_cada, structType, recvbuf, linhas_cada, structType, 0, MPI_COMM_WORLD); // (*)
+	
+	if (myrank == 0) {
+    for (i=0; i<GLOBAL_height; i++) {
+		*GLOBAL_tex[i] = recvbuf[i];
+
+        //printf("task 0: received %d %d\n", recvbuf[i*2], recvbuf[i*2+1]); // (*) 
+    }
+ }
 
 	// Esperar todas as tasks terminarem pra seguir
-	// MPI_Barrier(MPI_COMM_WORLD);
+	// MPI_Barrier(MPI_COMM_WORLD); // n sei se precisa com gather
 	
 	
 }
@@ -224,6 +250,8 @@ void set_texture()
 		alloc_tex();
 
 	calc_mandel();
+
+
  
 	if (GLOBAL_refresh) {
 		glEnable(GL_TEXTURE_2D);
@@ -398,41 +426,37 @@ void init_gfx(int *c, char **v, int rank)
 }
 
 ////////////////////////////////////////////////////////////////////////
-typedef struct {
-	double GLOBAL_cx = -0.6;
-	double GLOBAL_cy = 0;
-	double GLOBAL_scale = 1./256;
-	int GLOBAL_max_iter = 256;
-	//rgb_t **GLOBAL_tex = 0;
-} my_struct;
+// typedef struct {
+// 	double GLOBAL_cx = -0.6;
+// 	double GLOBAL_cy = 0;
+// 	double GLOBAL_scale = 1./256;
+// 	int GLOBAL_max_iter = 256;
+// 	//rgb_t **GLOBAL_tex = 0;
+// } my_struct;
 
 int main(int c, char **v)
 {
-	int numtasks, rank;
 
-	int blockcounts[2]; MPI_Aint offsets[2]; MPI_Datatype oldtypes[2];
-	MPI_Datatype structType; // variable that represents the new type
-	MPI_Aint lb, extent; // to get the lower bound and extent of the new type
+	int blockcounts[1]; MPI_Aint offsets[1]; MPI_Datatype oldtypes[1];
+	//MPI_Datatype structType; // variable that represents the new type
+	//MPI_Aint lb, extent; // to get the lower bound and extent of the new type
 
 	MPI_Init(&c, &v);
     MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 	// setup blockcounts and oldtypes
-	blockcounts[0] = 3; oldtypes[0] = MPI_DOUBLE; 
-	blockcounts[1] = 1; oldtypes[1] = MPI_INT;
+	blockcounts[0] = 3; oldtypes[0] = MPI_CHAR; 
 
 	// setup displacements
 	MPI_Aint base_address; 
-	my_struct myStruct;
-	MPI_Get_address(&myStruct, &base_address); // where "aParticle" begins
-	MPI_Get_address(&myStruct.GLOBAL_cx, &offsets[0]); // where the "x" field begins
+	rgb_t structRGB;
+	MPI_Get_address(&structRGB, &base_address); // where "aParticle" begins
+	MPI_Get_address(&structRGB.r, &offsets[0]); // where the "x" field begins
 	offsets[0] = MPI_Aint_diff(offsets[0], base_address);
-	MPI_Get_address(&myStruct.GLOBAL_max_iter, &offsets[1]); // where "n" field begins
-	offsets[1] = MPI_Aint_diff(offsets[1], base_address);
 
 	// create structured derived data type
-	MPI_Type_create_struct(2, blockcounts, offsets, oldtypes, &structType);
+	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &structType);
 	MPI_Type_commit(&structType);
  
 	if(rank == 0) // Task 0 executa tudo, incluino o calc mandel
