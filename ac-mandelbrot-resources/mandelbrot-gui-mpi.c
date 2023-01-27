@@ -1,7 +1,11 @@
-// FAZER
-// 1 - Começar a contar o tempo na função screendump (DONE)
-// 2 - Terminar de contar o tempo na função keypress (DONE)
-// 3 - 
+// Fazer
+// 1- Comunicar oq as tasks alterarem no calc_mandel
+// 2- Barreira no calc_mandel (FEITO)
+// 3- Broadcast quando usuario muda algo
+
+
+//mpirun -np 2 --hostfile localhost.OPENMPI ./mandelbrot-gui-mpi.exe
+
 #include <sys/time.h> 
 struct timeval start, end;
 
@@ -50,7 +54,7 @@ void render();
 void keypress(unsigned char key, int x, int y);
 void mouseclick(int button, int state, int x, int y);
 void resize(int w, int h);
-void init_gfx(int *c, char **v);
+void init_gfx(int *c, char **v, int rank);
 
 void alloc_tex();
 void set_texture();
@@ -128,20 +132,30 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
-{	
-
-	int numtasks, rank;
-
-	MPI_Init(&argc,&argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+{
 
 	int i, j, iter, min, max;
-	rgb_t *px;
+	rgb_t *px; // nosso ponteiro local para acessar o pixel
 	double x, y, zx, zy, zx2, zy2;
 	min = GLOBAL_max_iter; max = 0;
-	for (i = 0; i < GLOBAL_height; i++) {
-		px = GLOBAL_tex[i];
+
+	// Saber qual rank da task
+	int myrank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+	// Numero total de tasks
+	int total_tasks;
+	MPI_Comm_size(MPI_Comm comm, int *total_tasks)
+	// Quantas cada um vai fazer (só pode ser par)
+	int linhas_cada = GLOBAL_height/total_tasks;
+	int lim_inf = myrank*linhas_cada;
+	int lim_sup = lim_inf + linhas_cada;
+
+	// Calcula o px, min, max
+	for (i = lim_inf; i < lim_sup; i++) {
+		// recebe o endereço dos pixeis daquela linha, imagino q seja o endereço de onde começa a linha, 
+		// q é uma sequencia de variaveis rbg (3 chars) 
+		px = GLOBAL_tex[i]; 
+
 		y = (i - GLOBAL_height/2) * GLOBAL_scale + GLOBAL_cy;
 		for (j = 0; j  < GLOBAL_width; j++, px++) {
 			x = (j - GLOBAL_width/2) * GLOBAL_scale + GLOBAL_cx;
@@ -160,16 +174,22 @@ void calc_mandel()
 			}
 			if (iter < min) min = iter;
 			if (iter > max) max = iter;
-			*(unsigned short *)px = iter;
+
+			*(unsigned short *)px = iter; // Atraves de ponteiro ta alterando o valor armazenado naquele endereço
 		}
 	}
- 
-	for (i = 0; i < GLOBAL_height; i++)
-		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
-			hsv_to_rgb(*(unsigned short*)px, min, max, px);
 
+	// Passa min, max e cada px para a tela
+	for (i = lim_inf; i < lim_sup; i++)
+		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
+			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
+
+	// Comunicar?
+
+	// Esperar todas as tasks terminarem pra seguir
+	// MPI_Barrier(MPI_COMM_WORLD);
 	
-	MPI_Finalize();	
+	
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -247,6 +267,8 @@ void mouseclick(int button, int state, int x, int y)
 		break;
 	/* any other button recenters */
 	}
+
+	
 	set_texture();
 	//print_menu(); // uncomment for convenience; comment for benchmarking
 }
@@ -357,27 +379,74 @@ void render()
 
 ////////////////////////////////////////////////////////////////////////
 
-void init_gfx(int *c, char **v)
+void init_gfx(int *c, char **v, int rank)
 {
-	glutInit(c, v);
-	glutInitDisplayMode(GLUT_RGB);
-	glutInitWindowSize(GLOBAL_window_width, GLOBAL_window_height);
- 
-	GLOBAL_gwin = glutCreateWindow("Mandelbrot");
-	glutDisplayFunc(render);
- 
-	glutKeyboardFunc(keypress);
-	glutMouseFunc(mouseclick);
-	glutReshapeFunc(resize);
-	glGenTextures(1, &GLOBAL_texture);
+	if(rank == 0){
+		glutInit(c, v);
+		glutInitDisplayMode(GLUT_RGB);
+		glutInitWindowSize(GLOBAL_window_width, GLOBAL_window_height);
+	
+		GLOBAL_gwin = glutCreateWindow("Mandelbrot");
+		glutDisplayFunc(render);
+	
+		glutKeyboardFunc(keypress);
+		glutMouseFunc(mouseclick);
+		glutReshapeFunc(resize);
+		glGenTextures(1, &GLOBAL_texture);
+	}
 	set_texture();
 }
 
 ////////////////////////////////////////////////////////////////////////
+typedef struct {
+	double GLOBAL_cx = -0.6;
+	double GLOBAL_cy = 0;
+	double GLOBAL_scale = 1./256;
+	int GLOBAL_max_iter = 256;
+	//rgb_t **GLOBAL_tex = 0;
+} my_struct;
+
 int main(int c, char **v)
 {
-	init_gfx(&c, v);
-	print_menu();
-	glutMainLoop();	
+	int numtasks, rank;
+
+	int blockcounts[2]; MPI_Aint offsets[2]; MPI_Datatype oldtypes[2];
+	MPI_Datatype structType; // variable that represents the new type
+	MPI_Aint lb, extent; // to get the lower bound and extent of the new type
+
+	MPI_Init(&c, &v);
+    MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+	// setup blockcounts and oldtypes
+	blockcounts[0] = 3; oldtypes[0] = MPI_DOUBLE; 
+	blockcounts[1] = 1; oldtypes[1] = MPI_INT;
+
+	// setup displacements
+	MPI_Aint base_address; 
+	my_struct myStruct;
+	MPI_Get_address(&myStruct, &base_address); // where "aParticle" begins
+	MPI_Get_address(&myStruct.GLOBAL_cx, &offsets[0]); // where the "x" field begins
+	offsets[0] = MPI_Aint_diff(offsets[0], base_address);
+	MPI_Get_address(&myStruct.GLOBAL_max_iter, &offsets[1]); // where "n" field begins
+	offsets[1] = MPI_Aint_diff(offsets[1], base_address);
+
+	// create structured derived data type
+	MPI_Type_create_struct(2, blockcounts, offsets, oldtypes, &structType);
+	MPI_Type_commit(&structType);
+ 
+	if(rank == 0) // Task 0 executa tudo, incluino o calc mandel
+	{
+		init_gfx(&c, v, rank);
+		print_menu();
+		glutMainLoop();	
+	} else { // Outras tasks executam só o calc mandel
+		calc_mandel();
+	}
+	
+	
+	MPI_Finalize();	
+	
 	return 0;
+
 }
