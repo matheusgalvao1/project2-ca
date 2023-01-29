@@ -137,6 +137,52 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {
+	// MPI_Barrier(MPI_COMM_WORLD);
+
+
+	// GLOBAL_window_width - int
+	MPI_Bcast(&GLOBAL_window_width, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_window_height - int
+	MPI_Bcast(&GLOBAL_window_height, 1, MPI_INT, 0, MPI_COMM_WORLD);	
+	// GLOBAL_refresh - int
+	MPI_Bcast(&GLOBAL_refresh, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+
+	// GLOBAL_width - int
+	printf("1º - rank (calc_mandel): %i | GLOBAL_width %i\n", rank, GLOBAL_width);
+	MPI_Bcast(&GLOBAL_width, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	printf("2º - rank (calc_mandel): %i | GLOBAL_width %i\n", rank, GLOBAL_width);
+
+	
+	// GLOBAL_height - int
+	MPI_Bcast(&GLOBAL_height, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_max_iter - int
+	MPI_Bcast(&GLOBAL_max_iter, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_scale - double
+	MPI_Bcast(&GLOBAL_scale, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	// GLOBAL_cy - double
+	MPI_Bcast(&GLOBAL_cy, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	// GLOBAL_cx - double
+	MPI_Bcast(&GLOBAL_cx, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	// GLOBAL_invert - int
+	MPI_Bcast(&GLOBAL_invert, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_saturation - int 
+	MPI_Bcast(&GLOBAL_saturation, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_color_rotate - int
+	MPI_Bcast(&GLOBAL_color_rotate, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_tex_size - int
+	MPI_Bcast(&GLOBAL_tex_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_tex - 
+	
+	if(rank != 0){
+		printf("GLOBAL_tex_size %i\n", GLOBAL_tex_size);
+		// GLOBAL_tex = realloc(GLOBAL_tex, GLOBAL_tex_size);
+	}
+	
+	// MPI_Bcast(&(GLOBAL_tex[0][0]), GLOBAL_tex_size, structType, 0, MPI_COMM_WORLD);
+
+	MPI_Barrier(MPI_COMM_WORLD);	// teste
+
 	int i, j, iter, min, max;
 	rgb_t *px; // nosso ponteiro local para acessar o pixel
 	double x, y, zx, zy, zx2, zy2;
@@ -145,8 +191,6 @@ void calc_mandel()
 	// Saber qual rank da task
 	int myrank = rank;
 
-
-	//MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	// Numero total de tasks
 	int total_tasks = numtasks;
 	//MPI_Comm_size(MPI_Comm comm, int *total_tasks)
@@ -154,12 +198,6 @@ void calc_mandel()
 	int linhas_cada = GLOBAL_height/total_tasks;
 	int lim_inf = myrank*linhas_cada;
 	int lim_sup = lim_inf + linhas_cada;
-	// Buffers
-	rgb_t *recvbuf; rgb_t sendbuf[linhas_cada]; 
-	if (myrank == 0) {
-		// Cada task manda tantas linhas com tantos pixeis de tipo rbt_t
-     	recvbuf=(rgb_t*)malloc(linhas_cada*total_tasks*GLOBAL_width*sizeof(rgb_t)); // n sei o size
- 	}
 
 	// Calcula o px, min, max
 	for (i = lim_inf; i < lim_sup; i++) {
@@ -194,31 +232,44 @@ void calc_mandel()
 	for (i = lim_inf; i < lim_sup; i++)
 		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
 			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
-			
 
-	printf("myrank => %i\n", myrank);
+/*
+	// Buffers
+	// TODO enviar o GLOBAL_tex de cada task para a root, enviar a X linha de cada task para a zero
 
-	/*
-	// MPI_Barrier(MPI_COMM_WORLD);		
-	// Preparar buffer com GLOBAL_tex da posicao lim_inf até lim_sup
+	rgb_t *recvbuf, sendbuf[linhas_cada][GLOBAL_width];
+
+	if (myrank == 0)
+	{
+		// Cada task manda tantas linhas do tipo rbt_t, (bloco desenhado por cada task)
+		recvbuf = (rgb_t *)malloc((linhas_cada * GLOBAL_width) * total_tasks * sizeof(rgb_t)); // n sei o size
+	}
+	printf("myrank => %i, lim_inf: %i, lim_sup: %i, GLOBAL_width: %i\n", myrank, lim_inf, lim_sup, GLOBAL_width);
+
 	for (i = lim_inf; i < lim_sup; i++)
-		sendbuf[i] = *GLOBAL_tex[i];
-
-	// Faz gather mandando tantas linhas de structType
-	MPI_Gather(&sendbuf, linhas_cada, structType, recvbuf, linhas_cada, structType, 0, MPI_COMM_WORLD); // (*)
-	
-	if (myrank == 0) {
-    	for (i=linhas_cada; i<GLOBAL_height; i++) {
-			*GLOBAL_tex[i] = recvbuf[i];
-
-			//printf("task 0: received %d %d\n", recvbuf[i*2], recvbuf[i*2+1]); // (*) 
+	{
+		for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
+		{
+			sendbuf[i][j] = *px;
 		}
- 	}
-	*/
+	}
 
-	// Esperar todas as tasks terminarem pra seguir
-	//MPI_Barrier(MPI_COMM_WORLD); // n sei se precisa com gather
+	MPI_Gather(&sendbuf, (linhas_cada * GLOBAL_width), structType, recvbuf, (linhas_cada * GLOBAL_width), structType, 0, MPI_COMM_WORLD);
+
+	if (myrank == 0)
+	{
+		int aux = 0;
+		for (i = 0; i < GLOBAL_height; i++)
+		{
+			for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
+			{
+				*px = recvbuf[aux];
+				aux++;
+			}
+		}
+	}
 	
+*/
 	
 }
 
@@ -302,6 +353,9 @@ void mouseclick(int button, int state, int x, int y)
 
 	
 	set_texture();
+	/*
+	
+	*/
 	//print_menu(); // uncomment for convenience; comment for benchmarking
 }
 
@@ -462,6 +516,9 @@ int main(int c, char **v)
 	// create structured derived data type
 	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &structType);
 	MPI_Type_commit(&structType);
+
+	printf("rank (main): %i\n", rank);
+
  
 	if(rank == 0) // Task 0 executa tudo, incluino o calc mandel
 	{
@@ -469,7 +526,8 @@ int main(int c, char **v)
 		print_menu();
 		glutMainLoop();	
 	} else { // Outras tasks executam só o calc mandel
-		calc_mandel();
+		//while(1)
+			calc_mandel();
 	}
 	
 	
