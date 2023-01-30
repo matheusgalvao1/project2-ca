@@ -137,6 +137,8 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {
+	int i;
+
 	// GLOBAL_window_width - int
 	MPI_Bcast(&GLOBAL_window_width, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	// GLOBAL_window_height - int
@@ -174,31 +176,20 @@ void calc_mandel()
 		GLOBAL_tex = realloc(GLOBAL_tex, GLOBAL_tex_size);
 	}
 	MPI_Bcast(GLOBAL_tex, GLOBAL_tex_size, MPI_BYTE, 0, MPI_COMM_WORLD); // recebe todos os bytes
-	
-	// if(rank != 0) // Recalcular enderecos das linhas
-	// {
-	// 	for(int i=0; i<GLOBAL_tex_h; i++) {
-	// 		int SIZE_VECTOR_RGB_POINTER = GLOBAL_tex_h * sizeof(rgb_t*);
-	// 		// printf("SIZE_VECTOR_RGB_POINTER = %d\n", SIZE_VECTOR_RGB_POINTER);
-			
-	// 		int SIZE_VECTOR_STRUCT_LINE = GLOBAL_tex_w * 3;
-	// 		// printf("SIZE_VECTOR_STRUCT_LINE = %d\n", SIZE_VECTOR_STRUCT_LINE);
 
-	// 		*GLOBAL_tex[i] = *(*GLOBAL_tex + SIZE_VECTOR_RGB_POINTER + (i * SIZE_VECTOR_STRUCT_LINE));
-	// 	}
-	// }
+
+	if(rank != 0) // Recalcular enderecos das linhas
+	{
+		for (GLOBAL_tex[0] = (rgb_t *)(GLOBAL_tex + GLOBAL_tex_h), i = 1; i < GLOBAL_tex_h; i++)
+			GLOBAL_tex[i] = GLOBAL_tex[i - 1] + GLOBAL_tex_w;
+	}
 
 
 	//printf("------------------------ Rank %d: %d %d %d %d %d %d %f %f %f %d %d %d %d \n",rank,GLOBAL_window_height,GLOBAL_window_width,GLOBAL_refresh,GLOBAL_width,GLOBAL_height,GLOBAL_max_iter,GLOBAL_scale,GLOBAL_cy,GLOBAL_cx,GLOBAL_invert,GLOBAL_saturation,GLOBAL_color_rotate,GLOBAL_tex_size);
 
 	MPI_Barrier(MPI_COMM_WORLD);
-	
-	if(rank != 0 ){
-		return;
-	} 
 
-
-	int i, j, iter, min, max;
+	int j, iter, min, max;
 	rgb_t *px; // nosso ponteiro local para acessar o pixel
 	double x, y, zx, zy, zx2, zy2;
 	min = GLOBAL_max_iter; max = 0;
@@ -209,7 +200,7 @@ void calc_mandel()
 	// Numero total de tasks
 	int total_tasks = numtasks;
 	//MPI_Comm_size(MPI_Comm comm, int *total_tasks)
-	// Quantas cada um vai fazer (só pode ser par)
+	// Quantas cada task vai fazer (só pode ser par)
 	int linhas_cada = GLOBAL_height/total_tasks;
 	int lim_inf = myrank*linhas_cada;
 	int lim_sup = lim_inf + linhas_cada;
