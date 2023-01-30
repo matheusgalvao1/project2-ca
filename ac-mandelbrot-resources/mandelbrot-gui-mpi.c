@@ -45,7 +45,7 @@ int GLOBAL_zoomin[GLOBAL_zoomin_num_pairs]={538,237,491,369,522,383,492,372,504,
 int GLOBAL_window_width=1024;
 int GLOBAL_window_height=768;
 int GLOBAL_refresh=1;
-int GLOBAL_max_iter = 256;
+int GLOBAL_max_iter = 4096;
 int GLOBAL_tex_size=0;
 
 // Tornamos globais
@@ -184,8 +184,6 @@ void calc_mandel()
 	}
 
 	//printf("------------------------ Rank %d: %d %d %d %d %d %d %f %f %f %d %d %d %d \n",rank,GLOBAL_window_height,GLOBAL_window_width,GLOBAL_refresh,GLOBAL_width,GLOBAL_height,GLOBAL_max_iter,GLOBAL_scale,GLOBAL_cy,GLOBAL_cx,GLOBAL_invert,GLOBAL_saturation,GLOBAL_color_rotate,GLOBAL_tex_size);
-
-	MPI_Barrier(MPI_COMM_WORLD);
 
 	int j, iter, min, max;
 	rgb_t *px; // nosso ponteiro local para acessar o pixel
