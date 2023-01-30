@@ -137,23 +137,18 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {
-	// MPI_Barrier(MPI_COMM_WORLD);
-
-
 	// GLOBAL_window_width - int
 	MPI_Bcast(&GLOBAL_window_width, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	// GLOBAL_window_height - int
 	MPI_Bcast(&GLOBAL_window_height, 1, MPI_INT, 0, MPI_COMM_WORLD);	
+	// GLOBAL_tex_h - int
+	MPI_Bcast(&GLOBAL_tex_h, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	// GLOBAL_tex_w - int
+	MPI_Bcast(&GLOBAL_tex_w, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	// GLOBAL_refresh - int
 	MPI_Bcast(&GLOBAL_refresh, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-
 	// GLOBAL_width - int
-	printf("1º - rank (calc_mandel): %i | GLOBAL_width %i\n", rank, GLOBAL_width);
 	MPI_Bcast(&GLOBAL_width, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	printf("2º - rank (calc_mandel): %i | GLOBAL_width %i\n", rank, GLOBAL_width);
-
-	
 	// GLOBAL_height - int
 	MPI_Bcast(&GLOBAL_height, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	// GLOBAL_max_iter - int
@@ -172,16 +167,36 @@ void calc_mandel()
 	MPI_Bcast(&GLOBAL_color_rotate, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	// GLOBAL_tex_size - int
 	MPI_Bcast(&GLOBAL_tex_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_tex - 
 	
-	if(rank != 0){
-		printf("GLOBAL_tex_size %i\n", GLOBAL_tex_size);
-		// GLOBAL_tex = realloc(GLOBAL_tex, GLOBAL_tex_size);
+	// GLOBAL_tex - byte
+	if(rank != 0) // Alocar tamanho pro global_tex
+	{
+		GLOBAL_tex = realloc(GLOBAL_tex, GLOBAL_tex_size);
 	}
+	MPI_Bcast(GLOBAL_tex, GLOBAL_tex_size, MPI_BYTE, 0, MPI_COMM_WORLD); // recebe todos os bytes
 	
-	// MPI_Bcast(&(GLOBAL_tex[0][0]), GLOBAL_tex_size, structType, 0, MPI_COMM_WORLD);
+	// if(rank != 0) // Recalcular enderecos das linhas
+	// {
+	// 	for(int i=0; i<GLOBAL_tex_h; i++) {
+	// 		int SIZE_VECTOR_RGB_POINTER = GLOBAL_tex_h * sizeof(rgb_t*);
+	// 		// printf("SIZE_VECTOR_RGB_POINTER = %d\n", SIZE_VECTOR_RGB_POINTER);
+			
+	// 		int SIZE_VECTOR_STRUCT_LINE = GLOBAL_tex_w * 3;
+	// 		// printf("SIZE_VECTOR_STRUCT_LINE = %d\n", SIZE_VECTOR_STRUCT_LINE);
 
-	MPI_Barrier(MPI_COMM_WORLD);	// teste
+	// 		*GLOBAL_tex[i] = *(*GLOBAL_tex + SIZE_VECTOR_RGB_POINTER + (i * SIZE_VECTOR_STRUCT_LINE));
+	// 	}
+	// }
+
+
+	//printf("------------------------ Rank %d: %d %d %d %d %d %d %f %f %f %d %d %d %d \n",rank,GLOBAL_window_height,GLOBAL_window_width,GLOBAL_refresh,GLOBAL_width,GLOBAL_height,GLOBAL_max_iter,GLOBAL_scale,GLOBAL_cy,GLOBAL_cx,GLOBAL_invert,GLOBAL_saturation,GLOBAL_color_rotate,GLOBAL_tex_size);
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	
+	if(rank != 0 ){
+		return;
+	} 
+
 
 	int i, j, iter, min, max;
 	rgb_t *px; // nosso ponteiro local para acessar o pixel
@@ -290,6 +305,12 @@ void alloc_tex()
 		// a texture has GLOBAL_tex_h pointers to the begining of each line,
 		// followed by the GLOBAL_tex_h lines of the image (bottom to top);
         // each line is sequence of GLOBAL_tex_w*3 bytes (each pixel RGB values)
+
+		// printf("Global tex h: %d\n", GLOBAL_tex_h);
+		// printf("Global tex w: %d\n", GLOBAL_tex_w);
+		// printf("Global height: %d\n", GLOBAL_height);
+		// printf("Global width: %d\n", GLOBAL_width);
+		// printf("Size of rgb: %ld\n", sizeof(rgb_t));
     }
   
     // update pointers in the beggining of the texture
@@ -496,7 +517,7 @@ int main(int c, char **v)
 {
 
 	int blockcounts[1]; MPI_Aint offsets[1]; MPI_Datatype oldtypes[1];
-	//MPI_Datatype structType; // variable that represents the new type
+	//MPI_Datatype structType; // virou global - variable that represents the new type
 	//MPI_Aint lb, extent; // to get the lower bound and extent of the new type
 
 	MPI_Init(&c, &v);
@@ -517,8 +538,6 @@ int main(int c, char **v)
 	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &structType);
 	MPI_Type_commit(&structType);
 
-	printf("rank (main): %i\n", rank);
-
  
 	if(rank == 0) // Task 0 executa tudo, incluino o calc mandel
 	{
@@ -526,7 +545,7 @@ int main(int c, char **v)
 		print_menu();
 		glutMainLoop();	
 	} else { // Outras tasks executam só o calc mandel
-		//while(1)
+		while(1)
 			calc_mandel();
 	}
 	
