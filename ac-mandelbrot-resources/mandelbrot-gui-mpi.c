@@ -242,13 +242,8 @@ void calc_mandel()
 	// Buffers
 	// TODO enviar o GLOBAL_tex de cada task para a root, enviar a X linha de cada task para a zero
 
-	rgb_t **recvbuf, *sendbuf = 0;
-
-	if (myrank == 0)
-	{
-		recvbuf = realloc(GLOBAL_tex, GLOBAL_tex_size);
+	rgb_t *sendbuf = 0;
 	
-	}
 		
 	int SEND_BUFFER_SIZE = linhas_cada * GLOBAL_tex_w * sizeof(rgb_t);
 	sendbuf = realloc(sendbuf, SEND_BUFFER_SIZE);
@@ -259,14 +254,14 @@ void calc_mandel()
 	int aux = 0;
 	for (i = lim_inf; i < lim_sup; i++)
 	{
-		for (j = 1, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
+		for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
 		{
 			sendbuf[aux] = *px;
 			aux++;
 		}
 	}
 
-	MPI_Gather(sendbuf, SEND_BUFFER_SIZE, MPI_BYTE, *recvbuf, SEND_BUFFER_SIZE, MPI_BYTE, 0, MPI_COMM_WORLD);
+	MPI_Gather(sendbuf, SEND_BUFFER_SIZE, MPI_BYTE, *GLOBAL_tex, SEND_BUFFER_SIZE, MPI_BYTE, 0, MPI_COMM_WORLD);
 
 	// if (myrank == 0)
 	// {
