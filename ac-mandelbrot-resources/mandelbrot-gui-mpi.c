@@ -239,43 +239,49 @@ void calc_mandel()
 		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
 			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
 
-/*
 	// Buffers
 	// TODO enviar o GLOBAL_tex de cada task para a root, enviar a X linha de cada task para a zero
 
-	rgb_t *recvbuf, sendbuf[linhas_cada][GLOBAL_width];
+	rgb_t **recvbuf, *sendbuf = 0;
 
 	if (myrank == 0)
 	{
-		// Cada task manda tantas linhas do tipo rbt_t, (bloco desenhado por cada task)
-		recvbuf = (rgb_t *)malloc((linhas_cada * GLOBAL_width) * total_tasks * sizeof(rgb_t)); // n sei o size
+		recvbuf = realloc(GLOBAL_tex, GLOBAL_tex_size);
+	
 	}
-	printf("myrank => %i, lim_inf: %i, lim_sup: %i, GLOBAL_width: %i\n", myrank, lim_inf, lim_sup, GLOBAL_width);
+		
+	int SEND_BUFFER_SIZE = linhas_cada * GLOBAL_tex_w * sizeof(rgb_t);
+	sendbuf = realloc(sendbuf, SEND_BUFFER_SIZE);
+	
+	// for (GLOBAL_tex[0] = (rgb_t *)(GLOBAL_tex + GLOBAL_tex_h), i = 1; i < GLOBAL_tex_h; i++)
+	// 		GLOBAL_tex[i] = GLOBAL_tex[i - 1] + GLOBAL_tex_w;
 
+	int aux = 0;
 	for (i = lim_inf; i < lim_sup; i++)
 	{
-		for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
+		for (j = 1, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
 		{
-			sendbuf[i][j] = *px;
+			sendbuf[aux] = *px;
+			aux++;
 		}
 	}
 
-	MPI_Gather(&sendbuf, (linhas_cada * GLOBAL_width), structType, recvbuf, (linhas_cada * GLOBAL_width), structType, 0, MPI_COMM_WORLD);
+	MPI_Gather(sendbuf, SEND_BUFFER_SIZE, MPI_BYTE, *recvbuf, SEND_BUFFER_SIZE, MPI_BYTE, 0, MPI_COMM_WORLD);
 
-	if (myrank == 0)
-	{
-		int aux = 0;
-		for (i = 0; i < GLOBAL_height; i++)
-		{
-			for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
-			{
-				*px = recvbuf[aux];
-				aux++;
-			}
-		}
-	}
+	// if (myrank == 0)
+	// {
+	// 	int aux = 0;
+	// 	for (i = 0; i < GLOBAL_height; i++)
+	// 	{
+	// 		for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
+	// 		{
+	// 			*px = recvbuf[aux];
+	// 			aux++;
+	// 		}
+	// 	}
+	// }
 	
-*/
+
 	
 }
 
