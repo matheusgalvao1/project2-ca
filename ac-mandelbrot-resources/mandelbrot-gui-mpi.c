@@ -50,7 +50,6 @@ int GLOBAL_tex_size=0;
 
 // Tornamos globais
 int numtasks, rank;
-MPI_Datatype structType; // variable that represents the new type
 
 ////////////////////////////////////////////////////////////////////////
 //function prototypes
@@ -184,7 +183,6 @@ void calc_mandel()
 			GLOBAL_tex[i] = GLOBAL_tex[i - 1] + GLOBAL_tex_w;
 	}
 
-
 	//printf("------------------------ Rank %d: %d %d %d %d %d %d %f %f %f %d %d %d %d \n",rank,GLOBAL_window_height,GLOBAL_window_width,GLOBAL_refresh,GLOBAL_width,GLOBAL_height,GLOBAL_max_iter,GLOBAL_scale,GLOBAL_cy,GLOBAL_cx,GLOBAL_invert,GLOBAL_saturation,GLOBAL_color_rotate,GLOBAL_tex_size);
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -199,7 +197,7 @@ void calc_mandel()
 
 	// Numero total de tasks
 	int total_tasks = numtasks;
-	//MPI_Comm_size(MPI_Comm comm, int *total_tasks)
+
 	// Quantas cada task vai fazer (só pode ser par)
 	int linhas_cada = GLOBAL_height/total_tasks;
 	int lim_inf = myrank*linhas_cada;
@@ -240,16 +238,12 @@ void calc_mandel()
 			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
 
 	// Buffers
-	// TODO enviar o GLOBAL_tex de cada task para a root, enviar a X linha de cada task para a zero
-
 	rgb_t *sendbuf = 0;
 	
 		
 	int SEND_BUFFER_SIZE = linhas_cada * GLOBAL_tex_w * sizeof(rgb_t);
 	sendbuf = realloc(sendbuf, SEND_BUFFER_SIZE);
-	
-	// for (GLOBAL_tex[0] = (rgb_t *)(GLOBAL_tex + GLOBAL_tex_h), i = 1; i < GLOBAL_tex_h; i++)
-	// 		GLOBAL_tex[i] = GLOBAL_tex[i - 1] + GLOBAL_tex_w;
+
 
 	int aux = 0;
 	for (i = lim_inf; i < lim_sup; i++)
@@ -262,20 +256,6 @@ void calc_mandel()
 	}
 
 	MPI_Gather(sendbuf, SEND_BUFFER_SIZE, MPI_BYTE, *GLOBAL_tex, SEND_BUFFER_SIZE, MPI_BYTE, 0, MPI_COMM_WORLD);
-
-	// if (myrank == 0)
-	// {
-	// 	int aux = 0;
-	// 	for (i = 0; i < GLOBAL_height; i++)
-	// 	{
-	// 		for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
-	// 		{
-	// 			*px = recvbuf[aux];
-	// 			aux++;
-	// 		}
-	// 	}
-	// }
-	
 
 	
 }
@@ -297,12 +277,6 @@ void alloc_tex()
 		// a texture has GLOBAL_tex_h pointers to the begining of each line,
 		// followed by the GLOBAL_tex_h lines of the image (bottom to top);
         // each line is sequence of GLOBAL_tex_w*3 bytes (each pixel RGB values)
-
-		// printf("Global tex h: %d\n", GLOBAL_tex_h);
-		// printf("Global tex w: %d\n", GLOBAL_tex_w);
-		// printf("Global height: %d\n", GLOBAL_height);
-		// printf("Global width: %d\n", GLOBAL_width);
-		// printf("Size of rgb: %ld\n", sizeof(rgb_t));
     }
   
     // update pointers in the beggining of the texture
@@ -366,9 +340,7 @@ void mouseclick(int button, int state, int x, int y)
 
 	
 	set_texture();
-	/*
-	
-	*/
+
 	//print_menu(); // uncomment for convenience; comment for benchmarking
 }
 
@@ -496,39 +468,13 @@ void init_gfx(int *c, char **v, int rank)
 	set_texture();
 }
 
-////////////////////////////////////////////////////////////////////////
-// typedef struct {
-// 	double GLOBAL_cx = -0.6;
-// 	double GLOBAL_cy = 0;
-// 	double GLOBAL_scale = 1./256;
-// 	int GLOBAL_max_iter = 256;
-// 	//rgb_t **GLOBAL_tex = 0;
-// } my_struct;
 
 int main(int c, char **v)
 {
 
-	int blockcounts[1]; MPI_Aint offsets[1]; MPI_Datatype oldtypes[1];
-	//MPI_Datatype structType; // virou global - variable that represents the new type
-	//MPI_Aint lb, extent; // to get the lower bound and extent of the new type
-
 	MPI_Init(&c, &v);
     MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-	// setup blockcounts and oldtypes
-	blockcounts[0] = 3; oldtypes[0] = MPI_CHAR; 
-
-	// setup displacements
-	MPI_Aint base_address; 
-	rgb_t structRGB;
-	MPI_Get_address(&structRGB, &base_address); // where "aParticle" begins
-	MPI_Get_address(&structRGB.r, &offsets[0]); // where the "x" field begins
-	offsets[0] = MPI_Aint_diff(offsets[0], base_address);
-
-	// create structured derived data type
-	MPI_Type_create_struct(1, blockcounts, offsets, oldtypes, &structType);
-	MPI_Type_commit(&structType);
 
  
 	if(rank == 0) // Task 0 executa tudo, incluino o calc mandel
