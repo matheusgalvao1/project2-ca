@@ -1,14 +1,9 @@
-// Fazer
-// 1- Comunicar oq as tasks alterarem no calc_mandel
-// 2- Barreira no calc_mandel (FEITO)
-// 3- Broadcast quando usuario muda algo
-
-
 //mpirun -np 2 --hostfile localhost.OPENMPI ./mandelbrot-gui-mpi.exe
 
 #include <sys/time.h> 
 struct timeval start, end;
 
+int vezes_calc = 0;
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +40,7 @@ int GLOBAL_zoomin[GLOBAL_zoomin_num_pairs]={538,237,491,369,522,383,492,372,504,
 int GLOBAL_window_width=1024;
 int GLOBAL_window_height=768;
 int GLOBAL_refresh=1;
-int GLOBAL_max_iter = 4096;
+int GLOBAL_max_iter = 4096; // 4096 ou 256
 int GLOBAL_tex_size=0;
 
 // Tornamos globais
@@ -136,6 +131,8 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {
+	vezes_calc++;
+
 	int i;
 
 	// GLOBAL_window_width - int
@@ -203,7 +200,6 @@ void calc_mandel()
 
 	// Calcula o px, min, max
 	for (i = lim_inf; i < lim_sup; i++) {
-		// recebe o endereço dos pixeis daquela linha, imagino q seja o endereço de onde começa a linha, 
 		// q é uma sequencia de variaveis rbg (3 chars) 
 		px = GLOBAL_tex[i]; 
 
@@ -290,8 +286,6 @@ void set_texture()
 		alloc_tex();
 
 	calc_mandel();
-
-
  
 	if (GLOBAL_refresh) {
 		glEnable(GL_TEXTURE_2D);
@@ -407,15 +401,21 @@ void keypress(unsigned char key, int x, int y)
 
              GLOBAL_refresh=1; // use 0 to avoid refreshing all but the last one
              for (zoomin_x=0, zoomin_y=1; zoomin_x < GLOBAL_zoomin_num_pairs; zoomin_x+=2, zoomin_y +=2) {
-                 if (zoomin_x == GLOBAL_zoomin_num_pairs-2) GLOBAL_refresh=1;
-                 mouseclick(GLUT_LEFT_BUTTON, GLUT_UP, GLOBAL_zoomin[zoomin_x], GLOBAL_zoomin[zoomin_y]); 					
+            	if (zoomin_x == GLOBAL_zoomin_num_pairs-2) GLOBAL_refresh=1;
+                
+				mouseclick(GLUT_LEFT_BUTTON, GLUT_UP, GLOBAL_zoomin[zoomin_x], GLOBAL_zoomin[zoomin_y]);
+					
              }
+
 
              // simulate case 's'
              keypress('s', -1, -1);
-              
+
              // simulate case 'q'
              keypress('q', -1, -1);
+			 
+			 MPI_Finalize();	
+
              return;
 	}
 	set_texture();
@@ -473,7 +473,6 @@ int main(int c, char **v)
 	MPI_Init(&c, &v);
     MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
  
 	if(rank == 0) // Task 0 executa tudo, incluino o calc mandel
 	{
@@ -481,11 +480,12 @@ int main(int c, char **v)
 		print_menu();
 		glutMainLoop();	
 	} else { // Outras tasks executam só o calc mandel
-		while(1)
+		//while(1)
+		for(int c=0; c<20; c++)
 			calc_mandel();
+		
 	}
-	
-	
+
 	MPI_Finalize();	
 	
 	return 0;
