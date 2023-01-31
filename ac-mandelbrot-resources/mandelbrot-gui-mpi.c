@@ -236,7 +236,7 @@ void calc_mandel()
 	// Passa min, max e cada px para a tela
 	for (i = lim_inf; i < lim_sup; i++)
 		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
-			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
+			hsv_to_rgb(*(unsigned short*)px, min, max, px); 
 
 	// Buffer para envio
 	rgb_t *sendbuf = 0;
@@ -245,7 +245,6 @@ void calc_mandel()
 	int SEND_BUFFER_SIZE = linhas_cada * GLOBAL_tex_w * sizeof(rgb_t); 
 	// Espaco alocado para o buffer de envio
 	sendbuf = realloc(sendbuf, SEND_BUFFER_SIZE);
-
 
 	int aux = 0;
 	// Preenche o buffer de envio com todos os pixeis que a task calculou
@@ -404,27 +403,21 @@ void keypress(unsigned char key, int x, int y)
              break;
 
 	case 'Z':// simulate many mouse clicks in order to dive fully in zoomin
-
 			// COMEÇAR A CONTAR O TEMPO
 			gettimeofday(&start,NULL);
 
              GLOBAL_refresh=1; // use 0 to avoid refreshing all but the last one
              for (zoomin_x=0, zoomin_y=1; zoomin_x < GLOBAL_zoomin_num_pairs; zoomin_x+=2, zoomin_y +=2) {
             	if (zoomin_x == GLOBAL_zoomin_num_pairs-2) GLOBAL_refresh=1;
-                
+
 				mouseclick(GLUT_LEFT_BUTTON, GLUT_UP, GLOBAL_zoomin[zoomin_x], GLOBAL_zoomin[zoomin_y]);
-					
              }
-
-
              // simulate case 's'
              keypress('s', -1, -1);
-
              // simulate case 'q'
              keypress('q', -1, -1);
 			 
 			 MPI_Finalize();	
-
              return;
 	}
 	set_texture();
@@ -483,7 +476,7 @@ int main(int c, char **v)
     MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
  
-	if(rank == 0) // Task 0 executa tudo, incluino o calc mandel
+	if(rank == 0) // Task 0 executa tudo, incluindo o calc mandel
 	{
 		init_gfx(&c, v, rank);
 		print_menu();
