@@ -126,48 +126,66 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 	}
 }
 
+int bc_array_int[12];
+double bc_array_double[3];
+
+void into_arrays(){
+	bc_array_int[0] = GLOBAL_window_width;
+	bc_array_int[1] = GLOBAL_window_height;
+	bc_array_int[2] = GLOBAL_tex_h;
+	bc_array_int[3] = GLOBAL_tex_w;
+	bc_array_int[4] = GLOBAL_refresh;
+	bc_array_int[5] = GLOBAL_width;
+	bc_array_int[6] = GLOBAL_height;
+	bc_array_int[7] = GLOBAL_max_iter;
+	bc_array_int[8] = GLOBAL_invert;
+	bc_array_int[9] = GLOBAL_saturation;
+	bc_array_int[10] = GLOBAL_color_rotate;
+	bc_array_int[11] = GLOBAL_tex_size;
+
+	bc_array_double[0] = GLOBAL_scale;
+	bc_array_double[1] = GLOBAL_cy;
+	bc_array_double[2] = GLOBAL_cx;
+}
+
+void out_arrays(){
+	GLOBAL_window_width = bc_array_int[0];
+	GLOBAL_window_height = bc_array_int[1];
+	GLOBAL_tex_h = bc_array_int[2];
+	GLOBAL_tex_w = bc_array_int[3];
+	GLOBAL_refresh = bc_array_int[4];
+	GLOBAL_width = bc_array_int[5];
+	GLOBAL_height = bc_array_int[6];
+	GLOBAL_max_iter = bc_array_int[7];
+	GLOBAL_invert = bc_array_int[8];
+	GLOBAL_saturation = bc_array_int[9];
+	GLOBAL_color_rotate = bc_array_int[10];
+	GLOBAL_tex_size = bc_array_int[11];
+
+	GLOBAL_scale = bc_array_double[0];
+	GLOBAL_cy = bc_array_double[1];
+	GLOBAL_cx = bc_array_double[2];
+}
+
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {
 	int i;
 
-	// GLOBAL_window_width - int
-	MPI_Bcast(&GLOBAL_window_width, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_window_height - int
-	MPI_Bcast(&GLOBAL_window_height, 1, MPI_INT, 0, MPI_COMM_WORLD);	
-	// GLOBAL_tex_h - int
-	MPI_Bcast(&GLOBAL_tex_h, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_tex_w - int
-	MPI_Bcast(&GLOBAL_tex_w, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_refresh - int
-	MPI_Bcast(&GLOBAL_refresh, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_width - int
-	MPI_Bcast(&GLOBAL_width, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_height - int
-	MPI_Bcast(&GLOBAL_height, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_max_iter - int
-	MPI_Bcast(&GLOBAL_max_iter, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_scale - double
-	MPI_Bcast(&GLOBAL_scale, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	// GLOBAL_cy - double
-	MPI_Bcast(&GLOBAL_cy, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	// GLOBAL_cx - double
-	MPI_Bcast(&GLOBAL_cx, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	// GLOBAL_invert - int
-	MPI_Bcast(&GLOBAL_invert, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_saturation - int 
-	MPI_Bcast(&GLOBAL_saturation, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_color_rotate - int
-	MPI_Bcast(&GLOBAL_color_rotate, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	// GLOBAL_tex_size - int
-	MPI_Bcast(&GLOBAL_tex_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	
-	// GLOBAL_tex - byte
-	if(rank != 0) // Alocar tamanho pro global_tex
+	if(rank == 0)
 	{
-		GLOBAL_tex = realloc(GLOBAL_tex, GLOBAL_tex_size);
+		into_arrays(); // Passa todas as variaveis para dois arrays
 	}
-	MPI_Bcast(GLOBAL_tex, GLOBAL_tex_size, MPI_BYTE, 0, MPI_COMM_WORLD); // recebe todos os bytes
+
+	MPI_Bcast(&bc_array_int, 12, MPI_INT, 0, MPI_COMM_WORLD); // Manda todos os ints
+	MPI_Bcast(&bc_array_double, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD); // Manda todos os doubles
+
+	if(rank != 0) 
+	{	
+		out_arrays(); // Passa todos os elementos dos arrays para as variaveis
+		GLOBAL_tex = realloc(GLOBAL_tex, GLOBAL_tex_size); // Alocar tamanho pro global_tex
+	}
+	MPI_Bcast(GLOBAL_tex, GLOBAL_tex_size, MPI_BYTE, 0, MPI_COMM_WORLD); // Manda todos os bytes do GLOBAL_tex
 
 
 	if(rank != 0) // Recalcular enderecos das linhas
@@ -220,15 +238,17 @@ void calc_mandel()
 		for (j = 0, px = GLOBAL_tex[i]; j  < GLOBAL_width; j++, px++)
 			hsv_to_rgb(*(unsigned short*)px, min, max, px); // Passa o valor atraves de ponteiro e tambem o endereco 
 
-	// Buffers
+	// Buffer para envio
 	rgb_t *sendbuf = 0;
 	
-		
-	int SEND_BUFFER_SIZE = linhas_cada * GLOBAL_tex_w * sizeof(rgb_t);
+	// Tamanho do buffer a ser enviado	
+	int SEND_BUFFER_SIZE = linhas_cada * GLOBAL_tex_w * sizeof(rgb_t); 
+	// Espaco alocado para o buffer de envio
 	sendbuf = realloc(sendbuf, SEND_BUFFER_SIZE);
 
 
 	int aux = 0;
+	// Preenche o buffer de envio com todos os pixeis que a task calculou
 	for (i = lim_inf; i < lim_sup; i++)
 	{
 		for (j = 0, px = GLOBAL_tex[i]; j < GLOBAL_width; j++, px++)
@@ -238,9 +258,9 @@ void calc_mandel()
 		}
 	}
 
+	// Envia cada pedaco do GLOBAL_tex calculado para a task 0
 	MPI_Gather(sendbuf, SEND_BUFFER_SIZE, MPI_BYTE, *GLOBAL_tex, SEND_BUFFER_SIZE, MPI_BYTE, 0, MPI_COMM_WORLD);
 
-	
 }
 
 ////////////////////////////////////////////////////////////////////////
