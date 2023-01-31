@@ -3,8 +3,6 @@
 #include <sys/time.h> 
 struct timeval start, end;
 
-int vezes_calc = 0;
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -131,8 +129,6 @@ void hsv_to_rgb(int hue, int min, int max, rgb_t *p)
 ////////////////////////////////////////////////////////////////////////
 void calc_mandel() 
 {
-	vezes_calc++;
-
 	int i;
 
 	// GLOBAL_window_width - int
@@ -180,22 +176,15 @@ void calc_mandel()
 			GLOBAL_tex[i] = GLOBAL_tex[i - 1] + GLOBAL_tex_w;
 	}
 
-	//printf("------------------------ Rank %d: %d %d %d %d %d %d %f %f %f %d %d %d %d \n",rank,GLOBAL_window_height,GLOBAL_window_width,GLOBAL_refresh,GLOBAL_width,GLOBAL_height,GLOBAL_max_iter,GLOBAL_scale,GLOBAL_cy,GLOBAL_cx,GLOBAL_invert,GLOBAL_saturation,GLOBAL_color_rotate,GLOBAL_tex_size);
 
 	int j, iter, min, max;
 	rgb_t *px; // nosso ponteiro local para acessar o pixel
 	double x, y, zx, zy, zx2, zy2;
 	min = GLOBAL_max_iter; max = 0;
 
-	// Saber qual rank da task
-	int myrank = rank;
-
-	// Numero total de tasks
-	int total_tasks = numtasks;
-
 	// Quantas cada task vai fazer (só pode ser par)
-	int linhas_cada = GLOBAL_height/total_tasks;
-	int lim_inf = myrank*linhas_cada;
+	int linhas_cada = GLOBAL_height/numtasks;
+	int lim_inf = rank*linhas_cada;
 	int lim_sup = lim_inf + linhas_cada;
 
 	// Calcula o px, min, max
@@ -480,7 +469,6 @@ int main(int c, char **v)
 		print_menu();
 		glutMainLoop();	
 	} else { // Outras tasks executam só o calc mandel
-		//while(1)
 		for(int c=0; c<20; c++)
 			calc_mandel();
 		
