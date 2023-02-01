@@ -3,7 +3,8 @@
 Project for the course of Advanced Computing from Instituto Politecnico de Braganca, this project applies parallel computing using MPI to a serial code for the generation of Mandelbrot set. 
 
 1- Create the executable files
-- To makefile has two different commands
+- Enter the ac-mandelbrot-resources folder
+- The makefile has two different commands
 - "make" will generate the .exe file for serial version
 - "make mpi" will generate the .exe file for the MPI version
 
