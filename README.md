@@ -1,6 +1,6 @@
 # project2-ca
 
-Project for the course of Advanced Computing from Instituto Politecnico de Braganca, this project applies parallel computing using MPI to a serial code for the generation of Mandelbrot set. 
+Project for the course of Advanced Computing from Instituto Politecnico de Braganca, this project applies parallel computing using MPI to a serial code for the generation of the Mandelbrot set. 
 
 1- Create the executable files
 - Enter the ac-mandelbrot-resources folder
