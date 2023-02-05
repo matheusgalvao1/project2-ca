@@ -1,0 +1,4 @@
+**/*.exe
+
+**/*.ppm
+!/images/*.ppm
