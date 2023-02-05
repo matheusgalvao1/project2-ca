@@ -1,6 +1,8 @@
-# project2-ca
+# Parallel algorithm to generate Mandelbrot fractals using MPI 
 
-Project for the course of Advanced Computing from Instituto Politécnico de Bragança, this project applies parallel computing using MPI to a serial code for the generation of the Mandelbrot set. 
+Project for the course of Advanced Computing from Instituto Politécnico de Bragança (IPB), this project applies parallel computing using MPI to a serial code for the generation of the Mandelbrot set. 
+
+The instructions and requirements for this project are described in the file [practical-work.pdf](https://github.com/matheusgalvao1/project2-ca/blob/main/practical-work.pdf).
 
 1. **Create the executable files:**
     - Enter the ac-mandelbrot-resources folder: `cd ac-mandelbrot-resources` 
